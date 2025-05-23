@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Translation History</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <div class="sidebar">
+    <h2>🌐 Translator</h2>
+    <a href="/">Home</a>
+    <a href="/history">History</a>
+    <button class="toggle-mode" onclick="toggleMode()">🌓</button>
+  </div>
+
+  <div class="main">
+    <h1>Translation History</h1>
+    <button onclick="clearHistory()" class="clear-btn">🗑️ Clear History</button>
+    <div id="historyList" class="history-list"></div>
+  </div>
+
+  <script>
+    const container = document.getElementById("historyList");
+
+    function loadHistory() {
+      const history = JSON.parse(localStorage.getItem("translationHistory") || "[]");
+      if (history.length === 0) {
+        container.innerHTML = "<p>No history available.</p>";
+      } else {
+        container.innerHTML = history.map(item => `
+          <div class="history-item">
+            <p><strong>Original:</strong> ${item.original}</p>
+            <p><strong>Translated:</strong> ${item.translated}</p>
+            <p class="timestamp">${item.time}</p>
+          </div>
+        `).join("");
+      }
+    }
+
+    function clearHistory() {
+      if (confirm("Are you sure you want to clear the history?")) {
+        localStorage.removeItem("translationHistory");
+        loadHistory();
+      }
+    }
+
+    function toggleMode() {
+      document.body.classList.toggle("light");
+      localStorage.setItem("mode", document.body.classList.contains("light") ? "light" : "dark");
+    }
+
+    window.onload = () => {
+      const mode = localStorage.getItem("mode");
+      if (mode === "light") document.body.classList.add("light");
+      loadHistory();
+    };
+  </script>
+</body>
+</html>
+<!--         const translated = translatedEl.innerText.trim();
+ -->
