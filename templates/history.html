@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Translation History</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <div class="sidebar">
+    <div class="logo">
+      <h2>🌐 Translator</h2>
+    </div>
+    <nav class="nav-menu">
+      <a href="/" class="nav-item">
+        <span class="nav-icon">🏠</span>
+        Home
+      </a>
+      <a href="/history" class="nav-item active">
+        <span class="nav-icon">📝</span>
+        History
+      </a>
+    </nav>
+    <button class="toggle-mode" onclick="toggleMode()">
+      <span class="mode-icon">🌓</span>
+      <span class="mode-text">Toggle Theme</span>
+    </button>
+  </div>
+  
+  <div class="main">
+    <div class="container">
+      <header class="page-header">
+        <h1>Translation History</h1>
+        <p class="subtitle">View your recent translations</p>
+      </header>
+      
+      <div class="history-controls">
+        <button onclick="clearHistory()" class="btn btn-danger">
+          <span class="btn-icon">🗑️</span>
+          Clear History
+        </button>
+        <div class="history-count">
+          <span id="historyCount">0</span> translations saved
+        </div>
+      </div>
+      
+      <div id="historyList" class="history-container"></div>
+    </div>
+  </div>
+  
+  <script>
+    const container = document.getElementById("historyList");
+    const countElement = document.getElementById("historyCount");
+    
+    function loadHistory() {
+      const history = JSON.parse(localStorage.getItem("translationHistory") || "[]");
+      countElement.textContent = history.length;
+      
+      if (history.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">📝</div>
+            <h3>No translations yet</h3>
+            <p>Your translation history will appear here once you start translating text.</p>
+            <a href="/" class="btn btn-primary">Start Translating</a>
+          </div>
+        `;
+      } else {
+        container.innerHTML = history.map((item, index) => `
+          <div class="history-item" data-index="${index}">
+            <div class="history-content">
+              <div class="translation-pair">
+                <div class="original-text">
+                  <label class="text-label">Original</label>
+                  <p class="text-content">${item.original}</p>
+                </div>
+                <div class="arrow">→</div>
+                <div class="translated-text">
+                  <label class="text-label">Translated</label>
+                  <p class="text-content">${item.translated}</p>
+                </div>
+              </div>
+              <div class="history-meta">
+                <span class="timestamp">${item.time}</span>
+                <div class="history-actions">
+                  <button onclick="copyTranslation('${item.translated}')" class="action-btn" title="Copy translation">
+                    📋
+                  </button>
+                  <button onclick="deleteHistoryItem(${index})" class="action-btn delete-btn" title="Delete">
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `).join("");
+      }
+    }
+    
+    function clearHistory() {
+      if (confirm("Are you sure you want to clear all translation history?")) {
+        localStorage.removeItem("translationHistory");
+        loadHistory();
+      }
+    }
+    
+    function deleteHistoryItem(index) {
+      if (confirm("Delete this translation?")) {
+        let history = JSON.parse(localStorage.getItem("translationHistory") || "[]");
+        history.splice(index, 1);
+        localStorage.setItem("translationHistory", JSON.stringify(history));
+        loadHistory();
+      }
+    }
+    
+    function copyTranslation(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        // Visual feedback could be added here
+        alert('Copied to clipboard!');
+      });
+    }
+    
+    function toggleMode() {
+      document.body.classList.toggle("light");
+      localStorage.setItem("mode", document.body.classList.contains("light") ? "light" : "dark");
+    }
+    
+    window.onload = () => {
+      const mode = localStorage.getItem("mode");
+      if (mode === "light") document.body.classList.add("light");
+      loadHistory();
+    };
+  </script>
+</body>
+</html>

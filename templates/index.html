@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Language Translator</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <div class="sidebar">
+    <div class="logo">
+      <h2>🌐 Translator</h2>
+    </div>
+    <nav class="nav-menu">
+      <a href="/" class="nav-item active">
+        <span class="nav-icon">🏠</span>
+        Home
+      </a>
+      <a href="/history" class="nav-item">
+        <span class="nav-icon">📝</span>
+        History
+      </a>
+    </nav>
+    <button class="toggle-mode" onclick="toggleMode()">
+      <span class="mode-icon">🌓</span>
+      <span class="mode-text">Toggle Theme</span>
+    </button>
+  </div>
+  
+  <div class="main">
+    <div class="container">
+      <header class="page-header">
+        <h1>Translate Text</h1>
+        <p class="subtitle">Break language barriers with instant translation</p>
+      </header>
+      
+      <form method="POST" autocomplete="off" class="translator-form">
+        <div class="input-section">
+          <label for="textInput" class="input-label">Text to translate</label>
+          <textarea 
+            name="text" 
+            id="textInput" 
+            placeholder="Enter your text here..." 
+            required
+          >{{ input_text }}</textarea>
+        </div>
+        
+        <div class="language-selectors">
+          <div class="selector-group">
+            <label class="selector-label">From</label>
+            <select name="src_lang" class="language-select" required>
+              {% for code, lang in languages.items() %}
+                <option value="{{ code }}" {% if code == src_lang %}selected{% endif %}>{{ lang }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          
+          <div class="swap-button">
+            <button type="button" onclick="swapLanguages()" class="swap-btn">
+              ⇄
+            </button>
+          </div>
+          
+          <div class="selector-group">
+            <label class="selector-label">To</label>
+            <select name="dest_lang" class="language-select" required>
+              {% for code, lang in languages.items() %}
+                <option value="{{ code }}" {% if code == dest_lang %}selected{% endif %}>{{ lang }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        
+        <div class="action-buttons">
+          <button type="button" onclick="startListening()" class="btn btn-secondary">
+            <span class="btn-icon">🎙️</span>
+            Speak
+          </button>
+          <button type="submit" class="btn btn-primary">
+            <span class="btn-icon">🔄</span>
+            Translate
+          </button>
+          {% if translated_text %}
+          <button type="button" onclick="toggleSpeech()" class="btn btn-secondary" id="listenBtn">
+            <span class="btn-icon">🔊</span>
+            Listen
+          </button>
+          {% endif %}
+        </div>
+      </form>
+      
+      {% if translated_text %}
+      <div class="result-section">
+        <div class="result-header">
+          <h3>Translation Result</h3>
+          <button onclick="copyToClipboard()" class="copy-btn" title="Copy to clipboard">
+            📋
+          </button>
+        </div>
+        <div class="result-content">
+          <p id="outputText">{{ translated_text }}</p>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  
+  <script>
+    const textInput = document.getElementById("textInput");
+    
+    function startListening() {
+      // Check if speech recognition is supported
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        alert('Speech recognition not supported in this browser. Please use Chrome, Edge, or Safari.');
+        return;
+      }
+      
+      // Use the appropriate constructor
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      
+      const srcLang = document.querySelector("select[name='src_lang']").value;
+      const speakBtn = document.querySelector('button[onclick="startListening()"]');
+      
+      // Configure recognition
+      recognition.lang = srcLang;
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      
+      // Visual feedback
+      if (speakBtn) {
+        const originalText = speakBtn.innerHTML;
+        speakBtn.innerHTML = '<span class="btn-icon">🔴</span>Listening...';
+        speakBtn.disabled = true;
+        
+        const resetButton = () => {
+          speakBtn.innerHTML = originalText;
+          speakBtn.disabled = false;
+        };
+        
+        recognition.onstart = () => {
+          console.log('Speech recognition started');
+        };
+        
+        recognition.onresult = (event) => {
+          const transcript = event.results[0][0].transcript;
+          textInput.value = transcript;
+          resetButton();
+          console.log('Speech recognized:', transcript);
+        };
+        
+        recognition.onerror = (event) => {
+          console.error('Speech recognition error:', event.error);
+          resetButton();
+          
+          let errorMessage = 'Speech recognition failed. ';
+          switch(event.error) {
+            case 'no-speech':
+              errorMessage += 'No speech detected. Please try again.';
+              break;
+            case 'audio-capture':
+              errorMessage += 'No microphone found. Please check your microphone.';
+              break;
+            case 'not-allowed':
+              errorMessage += 'Microphone access denied. Please allow microphone access.';
+              break;
+            case 'network':
+              errorMessage += 'Network error. Please check your internet connection.';
+              break;
+            default:
+              errorMessage += 'Please try again.';
+          }
+          alert(errorMessage);
+        };
+        
+        recognition.onend = () => {
+          resetButton();
+          console.log('Speech recognition ended');
+        };
+        
+        // Auto-timeout after 10 seconds
+        setTimeout(() => {
+          if (speakBtn.disabled) {
+            recognition.stop();
+            resetButton();
+          }
+        }, 10000);
+      }
+      
+      try {
+        recognition.start();
+      } catch (error) {
+        console.error('Failed to start speech recognition:', error);
+        if (speakBtn) {
+          speakBtn.innerHTML = '<span class="btn-icon">🎙️</span>Speak';
+          speakBtn.disabled = false;
+        }
+        alert('Failed to start speech recognition. Please try again.');
+      }
+    }
+    
+    let isSpeaking = false;
+    
+    function toggleSpeech() {
+      if (isSpeaking) {
+        stopSpeaking();
+      } else {
+        speakText();
+      }
+    }
+    
+    function stopSpeaking() {
+      window.speechSynthesis.cancel();
+      isSpeaking = false;
+      const listenBtn = document.getElementById('listenBtn');
+      if (listenBtn) {
+        listenBtn.innerHTML = '<span class="btn-icon">🔊</span>Listen';
+        listenBtn.disabled = false;
+      }
+    }
+    
+    function speakText() {
+      // Stop any ongoing speech
+      window.speechSynthesis.cancel();
+      
+      const outputElement = document.getElementById("outputText");
+      const destLangSelect = document.querySelector("select[name='dest_lang']");
+      
+      if (!outputElement || !outputElement.innerText.trim()) {
+        alert('No text to speak');
+        return;
+      }
+      
+      const text = outputElement.innerText.trim();
+      const lang = destLangSelect.value;
+      
+      // Check if speech synthesis is supported
+      if (!('speechSynthesis' in window)) {
+        alert('Speech synthesis not supported in this browser');
+        return;
+      }
+      
+      // Wait for voices to load
+      const speakWithVoice = () => {
+        const msg = new SpeechSynthesisUtterance(text);
+        msg.lang = lang;
+        msg.rate = 0.8; // Slightly slower for better clarity
+        msg.pitch = 1;
+        msg.volume = 1;
+        
+        // Try to find a voice that matches the target language
+        const voices = window.speechSynthesis.getVoices();
+        const matchingVoice = voices.find(voice => 
+          voice.lang.startsWith(lang) || voice.lang.startsWith(lang.split('-')[0])
+        );
+        
+        if (matchingVoice) {
+          msg.voice = matchingVoice;
+        }
+        
+        // Visual feedback
+        const listenBtn = document.getElementById('listenBtn');
+        if (listenBtn) {
+          isSpeaking = true;
+          listenBtn.innerHTML = '<span class="btn-icon">⏹️</span>Stop';
+          listenBtn.disabled = false;
+          
+          msg.onstart = () => {
+            isSpeaking = true;
+          };
+          
+          msg.onend = () => {
+            isSpeaking = false;
+            listenBtn.innerHTML = '<span class="btn-icon">🔊</span>Listen';
+            listenBtn.disabled = false;
+          };
+          
+          msg.onerror = (event) => {
+            console.error('Speech synthesis error:', event);
+            isSpeaking = false;
+            listenBtn.innerHTML = '<span class="btn-icon">🔊</span>Listen';
+            listenBtn.disabled = false;
+            alert('Error occurred while speaking. Please try again.');
+          };
+        }
+        
+        window.speechSynthesis.speak(msg);
+      };
+      
+      // Check if voices are loaded
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        speakWithVoice();
+      } else {
+        // Wait for voices to load
+        let voicesLoaded = false;
+        window.speechSynthesis.onvoiceschanged = () => {
+          if (!voicesLoaded) {
+            voicesLoaded = true;
+            speakWithVoice();
+          }
+        };
+        
+        // Fallback timeout
+        setTimeout(() => {
+          if (!voicesLoaded) {
+            voicesLoaded = true;
+            // Speak without specific voice
+            const msg = new SpeechSynthesisUtterance(text);
+            msg.lang = lang;
+            msg.rate = 0.8;
+            
+            const listenBtn = document.getElementById('listenBtn');
+            if (listenBtn) {
+              isSpeaking = true;
+              listenBtn.innerHTML = '<span class="btn-icon">⏹️</span>Stop';
+              
+              msg.onend = () => {
+                isSpeaking = false;
+                listenBtn.innerHTML = '<span class="btn-icon">🔊</span>Listen';
+              };
+            }
+            
+            window.speechSynthesis.speak(msg);
+          }
+        }, 1000);
+      }
+    }
+    
+    function swapLanguages() {
+      const srcSelect = document.querySelector("select[name='src_lang']");
+      const destSelect = document.querySelector("select[name='dest_lang']");
+      const temp = srcSelect.value;
+      srcSelect.value = destSelect.value;
+      destSelect.value = temp;
+    }
+    
+    function copyToClipboard() {
+      const text = document.getElementById("outputText").innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        const copyBtn = document.querySelector('.copy-btn');
+        copyBtn.innerHTML = '✓';
+        setTimeout(() => {
+          copyBtn.innerHTML = '📋';
+        }, 2000);
+      });
+    }
+    
+    function saveTranslationToHistory() {
+      const original = textInput.value.trim();
+      const translatedElem = document.getElementById("outputText");
+      const translated = translatedElem ? translatedElem.innerText.trim() : "";
+      if (original && translated) {
+        let history = JSON.parse(localStorage.getItem("translationHistory") || "[]");
+        if (
+          history.length === 0 ||
+          history[0].original !== original ||
+          history[0].translated !== translated
+        ) {
+          history.unshift({ original, translated, time: new Date().toLocaleString() });
+          if (history.length > 20) history = history.slice(0, 20);
+          localStorage.setItem("translationHistory", JSON.stringify(history));
+        }
+      }
+    }
+    
+    function toggleMode() {
+      document.body.classList.toggle("light");
+      localStorage.setItem("mode", document.body.classList.contains("light") ? "light" : "dark");
+    }
+    
+    window.onload = () => {
+      const mode = localStorage.getItem("mode");
+      if (mode === "light") document.body.classList.add("light");
+      {% if translated_text %}
+      saveTranslationToHistory();
+      {% endif %}
+    };
+  </script>
+</body>
+</html>
